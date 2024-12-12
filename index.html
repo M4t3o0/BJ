@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora de Blackjack</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #1e272e;
+            color: #d2dae2;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+        }
+        header {
+            background-color: #0fbcf9;
+            padding: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        header h1 {
+            margin: 0;
+            color: #d2dae2;
+        }
+        .container {
+            padding: 20px;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-around;
+            padding: 20px;
+            background-color: #34495e;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .info-box {
+            flex: 1;
+            margin: 0 10px;
+            padding: 15px;
+            background-color: #1e272e;
+            border-radius: 10px;
+            color: #ecf0f1;
+        }
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(13, 1fr);
+            gap: 10px;
+            margin: 20px 0;
+        }
+        .card-button {
+            width: 60px;
+            height: 90px;
+            background: linear-gradient(145deg, #2c3e50, #34495e);
+            color: #ecf0f1;
+            font-size: 12px;
+            font-weight: bold;
+            border-radius: 8px;
+            border: 1px solid #bdc3c7;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .card-button.selected {
+            background: linear-gradient(145deg, #27ae60, #2ecc71);
+            color: #fff;
+        }
+        .recommendation {
+            margin-top: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            transition: color 0.3s ease, transform 0.3s ease;
+        }
+        .recommendation.green {
+            color: #2ecc71;
+            text-shadow: 0 0 10px #2ecc71;
+        }
+        .recommendation.red {
+            color: #e74c3c;
+            text-shadow: 0 0 10px #e74c3c;
+        }
+        .recommendation.yellow {
+            color: #f1c40f;
+            text-shadow: 0 0 10px #f1c40f;
+        }
+        .log {
+            margin: 20px;
+            padding: 15px;
+            background-color: #2c3e50;
+            color: #ecf0f1;
+            border-radius: 8px;
+            max-height: 100px;
+            overflow-y: auto;
+            font-size: 12px;
+        }
+        .reset-button {
+            padding: 10px 20px;
+            font-size: 18px;
+            background-color: #0fbcf9;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: background-color 0.3s ease;
+        }
+        .reset-button:hover {
+            background-color: #4fc3f7;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Calculadora de Blackjack</h1>
+    </header>
+    <div class="container">
+        <div class="info-row">
+            <div class="info-box">
+                <h2>Cartas Restantes</h2>
+                <p id="remaining-cards-count">52</p>
+            </div>
+            <div class="info-box">
+                <h2>Probabilidades</h2>
+                <p id="winning-probability">Probabilidad de ganar: 0%</p>
+                <p id="losing-probability">Probabilidad de perder: 0%</p>
+            </div>
+            <div class="info-box">
+                <h2>Extra</h2>
+                <p id="extra-strategy">Conteo actual (High-Low): 0</p>
+            </div>
+        </div>
+        <div class="card-grid" id="card-grid"></div>
+        <div id="recommendation" class="recommendation">Incierto...</div>
+        <button class="reset-button" id="reset-button">Reiniciar</button>
+        <div class="log" id="log">Log de acciones:</div>
+    </div>
+
+    <script>
+        const suits = [
+            { name: "Tréboles", emoji: "♣️" },
+            { name: "Corazones", emoji: "♥️" },
+            { name: "Diamantes", emoji: "♦️" },
+            { name: "Picas", emoji: "♠️" },
+        ];
+        const values = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+        const deck = [];
+        suits.forEach(suit => values.forEach(value => deck.push({ name: `${value} de ${suit.name}`, emoji: suit.emoji + value })));
+
+        let remainingCards = [...deck];
+        let highLowCount = 0;
+
+        const cardGrid = document.getElementById('card-grid');
+        const remainingCardsCount = document.getElementById('remaining-cards-count');
+        const recommendation = document.getElementById('recommendation');
+        const winningProbability = document.getElementById('winning-probability');
+        const losingProbability = document.getElementById('losing-probability');
+        const extraStrategy = document.getElementById('extra-strategy');
+        const log = document.getElementById('log');
+
+        function logAction(action) {
+            const logEntry = document.createElement('p');
+            logEntry.textContent = action;
+            log.appendChild(logEntry);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function updateInfo() {
+            remainingCardsCount.textContent = remainingCards.length;
+            const favorableCards = remainingCards.filter(card => card.name.startsWith('A') || ['2', '3', '4', '5', '6'].some(val => card.name.startsWith(val))).length;
+            const winProb = (favorableCards / remainingCards.length * 100).toFixed(2);
+            const loseProb = (100 - winProb).toFixed(2);
+
+            winningProbability.textContent = `Probabilidad de ganar: ${winProb}%`;
+            losingProbability.textContent = `Probabilidad de perder: ${loseProb}%`;
+            extraStrategy.textContent = `Conteo actual (High-Low): ${highLowCount}`;
+
+            recommendation.textContent = winProb > 60 ? "¡Apostá ahora!" : winProb < 40 ? "No apuestes ahora." : "Incierto...";
+            recommendation.className = winProb > 60 ? "recommendation green" : winProb < 40 ? "recommendation red" : "recommendation yellow";
+        }
+
+        function updateHighLow(card) {
+            const value = card.name.split(' ')[0]; // Extraer el valor de la carta
+            if (['2', '3', '4', '5', '6'].includes(value)) {
+                highLowCount++;
+                logAction(`Se tocó ${card.name}, se suma +1.`);
+            } else if (['10', 'J', 'Q', 'K', 'A'].includes(value)) {
+                highLowCount--;
+                logAction(`Se tocó ${card.name}, se resta -1.`);
+            } else {
+                logAction(`Se tocó ${card.name}, no afecta el conteo.`);
+            }
+        }
+
+        deck.forEach(card => {
+            const button = document.createElement('div');
+            button.textContent = card.emoji;
+            button.title = card.name;
+            button.className = 'card-button';
+            button.onclick = () => {
+                if (button.classList.contains('selected')) {
+                    button.classList.remove('selected');
+                    remainingCards.push(card);
+                    logAction(`Añadida: ${card.name}`);
+                } else {
+                    button.classList.add('selected');
+                    remainingCards = remainingCards.filter(c => c !== card);
+                    updateHighLow(card);
+                }
+                updateInfo();
+            };
+            cardGrid.appendChild(button);
+        });
+
+        document.getElementById('reset-button').onclick = () => {
+            remainingCards = [...deck];
+            highLowCount = 0;
+            document.querySelectorAll('.card-button').forEach(button => button.classList.remove('selected'));
+            logAction("Juego reiniciado.");
+            updateInfo();
+        };
+
+        updateInfo();
+    </script>
+</body>
+</html>
